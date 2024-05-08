@@ -22,6 +22,7 @@ typedef struct {
 } SpikeInfo;
 
 double CurrentInjection(double time, int maxtime_count, SpikeInfo *spikes){
+    // WIP
     double sum_exc, sum_inh, gtau_exc, gtau_inh, t;
     for (int k = 0; k < maxtime_count; k++){
         
