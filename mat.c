@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <math.h>
 #include <SFMT.h>
+#include <time.h>
 
 #define TAU_M 5.0 // time constant [ms]
 #define R_RESIST 50.0 // membrane resistance [MOhm]
@@ -19,113 +20,73 @@
 #define DT 0.001 // step size [ms]
 #define MAX_T 100.0 // max time [ms]
 
-// double g_Conductance(double tau, double time){
-//     return (time >= 0) ? (time * exp(- time / tau) / tau) : 0.0;
-// }
-
-// double CurrentInjection(double time, int maxtime_count, SpikeInfo *exc_spikes, SpikeInfo *inh_spikes){
-//     // eq(7)
-//     double sum_exc, sum_inh, gtau_exc, gtau_inh, t;
-//     sum_exc = 0;
-//     sum_inh = 0;
-//     for (int k = 0; k < maxtime_count; k++){
-//         sum_exc += I_EXC * g_Conductance(TAU_EXC, time - exc_spikes[k].spikedTime);
-//     }
-//     for (int j = 0; j < maxtime_count; j++){
-//         sum_inh += I_INH * g_Conductance(TAU_INH, time - inh_spikes[j].spikedTime);
-//     }
-//     return A_SCALE * (sum_exc + sum_inh);
-// }
-
-// double dvdt(double time, double current, double voltage){
-//     return (-voltage + R_RESIST * current) / TAU_M;
-// }
-
-// double* readFile(char *file_name){
-//     FILE *file = fopen(file_name, "r");
-//     if (file == NULL) {
-//         perror("file cannot open\n");
-//         return 1;
-//     }
-//     // 行数をカウント
-//     int line_count = 0;
-//     char buffer[100]; // 行ごとの入力を一時的に格納するバッファ
-//     while (fgets(buffer, sizeof(buffer), file) != NULL) {
-//         line_count++;
-//     }
-//     // ファイルの先頭に戻る
-//     rewind(file);
-
-//     // 配列を動的に確保
-//     double *array = (double *)malloc(line_count * sizeof(double));
-//     if (array == NULL) {
-//         perror("malloc error\n");
-//         return 1;
-//     }
-
-//     // ファイルから値を読み取り、配列に格納
-//     double index, value;
-//     int i = 0;
-//     while (fscanf(file, "%lf %lf", &index, &value) == 2 && i < line_count) {
-//         array[i] = value;
-//         i++;
-//     }
-
-//     // ファイルを閉じる
-//     fclose(file);
-
-//     // 配列を返す
-//     return array;
-
-// }
-
-void generateSpike(int frec, sfmt_t rng, FILE *file){
-    int maxtime_count = (int)MAX_T / DT;
-    int spikeNumber_count = 0;
-    for(int count = 0; count < maxtime_count; count++){
-       double time_ms = count * DT;
-       double rand = sfmt_genrand_real2(&rng);
-       bool spike = (rand < frec * DT);
-       if(spike){
-            fprintf(file, "%d %f\n", spikeNumber_count, time_ms);
-            spikeNumber_count++;
-        }
-    }
+double Sum1(double time, bool spike, double tau, double old_sum1){
+    return exp(-DT / tau) * old_sum1 + spike;
 }
 
-int main(){    
-    // parameter setup
-    int maxtime_count = (int)MAX_T / DT;
-    int spikeNumber_count = 0;
-    // double spikedTime_count = 0;
-    double exc_frec = 6.88;
+double Sum2(double time, bool spike, double tau, double old_sum2){
+    return exp(-DT / tau) * old_sum2 + spike * time;
+}
 
-    // random number setup
+double g_calculate(double time, double tau, double sum1, double sum2){
+    return ((time + DT) * sum1 - sum2) / tau;
+}
+
+double i_current(double g_exc, double g_inh){
+    return A_SCALE * I_EXC * g_exc + A_SCALE * I_INH * g_inh;
+}
+
+double dvdt(double v_memb, double i_current){
+    return ( -v_memb + R_RESIST * i_current) / TAU_M;
+}
+
+double H_t(double time, double *alpha, double *tau){
+    double sum = 0;
+    for (int i = 0; i < L_NUM; i++){
+        sum += alpha[i] * exp(-time / tau[i]); 
+    }
+    return sum;
+}
+
+double theta_t(double time){
+    double sum = 0;
+    
+    return OMEGA_REST;
+}
+
+
+int main(){
+    double sum1_e, sum2_e, sum1_i, sum2_i;
+    sum1_e = 0;
+    sum2_e = 0;
+    sum1_i = 0;
+    sum2_i = 0;
+    double i_curr, g_exc, g_inh, frec;
+
+    frec = 6.88;
+
+    int maxtime_count = MAX_T / DT;       
+    bool spike = 0;
+
+    FILE *spike_file;
+    char *s_filename = "spike.dat";
+    spike_file = fopen(s_filename, "w");
+
     uint32_t seed = (uint32_t)time(NULL);
     sfmt_t rng;
-    sfmt_init_gen_rand (&rng, seed);
-
-    // file setup (debug menu)
-    FILE *exc_spike_file;
-    char *e_filename = "exc_spike.dat";
-    exc_spike_file = fopen(e_filename, "w");
-
-    // generate random spike
-    generateSpike(exc_frec, rng, exc_spike_file);
-
-    // for(int count = 0; count < maxtime_count; count++){
-    //    double time_ms = count * DT;
-    //    double rand = sfmt_genrand_real2(&rng);
-    //    bool spike = (rand < exc_frec * DT);
-    //    if(spike){
-    //         fprintf(exc_spike_file, "%d %f\n", spikeNumber_count, time_ms);
-    //         spikeNumber_count++;
-    //     }
-    // }
+    sfmt_init_gen_rand(&rng, seed); 
 
 
-    fclose(exc_spike_file);
+    for (int time_count = 0; time_count < maxtime_count; time_count++){
+        double time_ms = time_count * DT;
+        double rand = sfmt_genrand_real2(&rng);
+        bool spike = (rand < frec * DT);
+        double old_sum1_e = sum1_e;
+        sum1_e = Sum1(time_ms, spike, TAU_EXC, old_sum1_e);
+        fprintf(spike_file, "%d %lf\n", time_count, sum1_e);
+    }
 
+    fclose(spike_file);
 
     return 0;
 }
