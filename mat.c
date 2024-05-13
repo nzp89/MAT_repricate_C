@@ -68,11 +68,10 @@ int main(){
     int maxtime_count = MAX_T / DT;       
     bool spike = 0;
 
-    FILE *conductance_file;
-    char *c_filename = "conductance.dat";
-    conductance_file = fopen(c_filename, "w");
-
-
+    FILE *i_current_file;
+    char *i_filename = "i_current.dat";
+    i_current_file = fopen(i_filename, "w");
+    
     uint32_t seed = (uint32_t)time(NULL);
     sfmt_t rng;
     sfmt_init_gen_rand(&rng, seed); 
@@ -95,10 +94,13 @@ int main(){
         g_exc = g_calculate(time_ms, TAU_EXC, sum1_e, sum2_e);
         g_inh = g_calculate(time_ms, TAU_INH, sum1_i, sum2_i);
 
-        fprintf(conductance_file, "%lf %lf %lf\n", time_count * DT, g_exc, g_inh);
+        i_curr = i_current(g_exc, g_inh);
+
+        fprintf(i_current_file, "%lf %lf\n", time_ms, i_curr);
+
     }
 
-    fclose(conductance_file);
+    fclose(i_current_file);
 
     return 0;
 }
