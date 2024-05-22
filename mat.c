@@ -51,12 +51,13 @@ int main(){
     threshold = 0;
     threshold_0 = -1;
 
-    b_volt = 1; // <=> omega
-    tau_theta = 5000; // <=> H tau
+    b_volt = 10; // <=> omega
+    tau_theta = 50; // <=> H tau
 
     frec = 6.88;
 
-    int maxtime_count = MAX_T / DT;       
+    int maxtime_count = MAX_T / DT;      
+    bool spike = 0; 
 
     FILE *mat_all_file;
     char *m_filename = "mat_all.dat";
@@ -71,16 +72,16 @@ int main(){
         double old_threshold = threshold;
         double time_ms = time_count * DT;
         double rand = sfmt_genrand_real2(&rng);
-        bool spike = (rand < frec * DT);
+        bool rand_material = (rand < frec * DT);
         double old_sum1_e = sum1_e;
         double old_sum2_e = sum2_e;
         double old_sum1_i = sum1_i;
         double old_sum2_i = sum2_i;
 
-        sum1_e = Sum1(time_ms, spike, TAU_EXC, old_sum1_e);
-        sum2_e = Sum2(time_ms, spike, TAU_EXC, old_sum2_e);
-        sum1_i = Sum1(time_ms, spike, TAU_INH, old_sum1_i);
-        sum2_i = Sum2(time_ms, spike, TAU_INH, old_sum2_i);
+        sum1_e = Sum1(time_ms, rand_material, TAU_EXC, old_sum1_e);
+        sum2_e = Sum2(time_ms, rand_material, TAU_EXC, old_sum2_e);
+        sum1_i = Sum1(time_ms, rand_material, TAU_INH, old_sum1_i);
+        sum2_i = Sum2(time_ms, rand_material, TAU_INH, old_sum2_i);
 
         g_exc = g_calculate(time_ms, TAU_EXC, sum1_e, sum2_e);
         g_inh = g_calculate(time_ms, TAU_INH, sum1_i, sum2_i);
