@@ -33,7 +33,7 @@ double generateGaussianNoise(double sigma) {
 }
 
 int main(){
-    double v_memb, threshold, i_current, w_noise, a_ms, b_volt;
+    double v_memb, threshold, i_current, w_noise, a_ms, b_volt, tau_theta, threshold_0;
     double sigma = 0.2;
     int max_count = (int) T_MAX / DT;
     int spike = 0;
@@ -42,6 +42,8 @@ int main(){
     i_current = 0;
     a_ms = 5.0;
     b_volt = 1.0;
+    tau_theta = 30;
+    threshold_0 = -1;
 
     FILE *simple_mat_all_file;
     char *s_filename = "simple_mat_all.dat";
@@ -55,7 +57,7 @@ int main(){
         i_current = sin(2 * M_PI * i / 100);
 
         v_memb = C_RESIST * i_current + w_noise;
-        threshold = old_threshold - (b_volt / a_ms);
+        threshold = exp(-1.0 / tau_theta) * old_threshold + (1.0 - exp(-1.0 / tau_theta)) * threshold_0;
         spike = (v_memb >= threshold) ? 1: 0;
         threshold = threshold + spike * b_volt;
 
