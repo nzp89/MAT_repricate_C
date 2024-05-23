@@ -1,4 +1,4 @@
-# MAT_reproduce （WIP!）
+# MAT_reproduce  (WIP!)
 Made-to-order spiking neuron model equipped with a multi-timescale adaptive thresholdのC言語版再実装。
 
 [メルセンヌツイスター](http://www.math.sci.hiroshima-u.ac.jp/m-mat/MT/SFMT/index-jp.html#SFMT)をご用意ください。Makefileに書いてあるSFMTDIRの通りの階層構造になるようにフォルダを置いてください。
