@@ -1,4 +1,5 @@
 // A simple model of long-ter, spike train regularization
+// gcc -o simple_mat simple_mat.c -lm
 #define _USE_MATH_DEFINES_
 #include <stdio.h>
 #include <stdlib.h>
