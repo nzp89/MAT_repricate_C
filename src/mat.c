@@ -8,7 +8,7 @@
 #define TAU_M 5.0 // time constant [ms]
 #define R_RESIST 50.0 // membrane resistance [MOhm]
 #define L_NUM 2 // the number of threshold time constants
-#define REFRACTORY 2.0 // absolute resractory period [ms]
+#define REFRACTORY 2.0 // absolute refractory period [ms]
 #define A_SCALE 1.2 // scale factor (0.1 -- 1.2)
 
 #define I_EXC 0.1 // exc amplitude [nA]
@@ -16,7 +16,7 @@
 #define TAU_EXC 1.0 // exc decay-time constant [ms]
 #define TAU_INH 3.0 // inh decay-time constant [ms]
 
-#define DT 0.001 // step size [ms]
+#define DT 0.01 // step size [ms]
 #define MAX_T 1000.0 // max time [ms]
 
 double Sum1(double time, bool spike, double tau, double old_sum1){
@@ -56,14 +56,18 @@ void update_sums_and_currents(double time_ms, bool rand_material, double *sum1_e
     *i_curr = i_current(*g_exc, *g_inh);
 }
 
-void update_threshold_and_spike(double *threshold, double tau_theta, double threshold_0, double v_memb, double b_volt, bool *spike) {
+void update_threshold_and_spike(double *threshold, double tau_theta, double threshold_0, double v_memb, double b_volt, bool *spike, bool refractory_flag) {
     double old_threshold = *threshold;
     *threshold = exp(-DT / tau_theta) * old_threshold + (1.0 - exp(-DT / tau_theta)) * threshold_0;
-    *spike = (v_memb >= *threshold) ? 1 : 0;
+    *spike = (!refractory_flag && v_memb >= *threshold) ? 1 : 0;
     *threshold = *threshold + *spike * b_volt;
 }
 
-void update_membrane_voltage(double *v_memb, double i_curr) {
+void constant_currents(double *i_curr){
+    *i_curr = 0.6;
+}
+
+void update_membrane_voltage(double *v_memb, double i_curr, bool refractory_flag, double threshold) {
     *v_memb += DT * dvdt(*v_memb, i_curr);
 }
 
@@ -76,12 +80,15 @@ int main(){
     v_memb = 0;
     threshold = 0;
     threshold_0 = -1;
-    b_volt = 19; // <=> 発火時の上がり幅
-    tau_theta = 200; // <=> expの下がり具合
+    b_volt = 10; // <=> 発火時の上がり幅 omega
+    tau_theta = 300; // <=> expの下がり具合 alpha
     frec = 6.88;
 
-    int maxtime_count = MAX_T / DT;      
-    bool spike = 0; 
+    int maxtime_count = MAX_T / DT;
+    int count_per_ms = (int)(1.0 / DT);  
+    int refractory_flag = 0; 
+    int refractory_counter = 0; 
+    bool spike = 0;
 
     FILE *v_memb_file;
     char *v_filename = "output/v_memb.dat";
@@ -95,11 +102,9 @@ int main(){
     char *c_filename = "output/i_current.dat";
     current_file = fopen(c_filename, "w");
     
-        
     uint32_t seed = (uint32_t)time(NULL);
     sfmt_t rng;
     sfmt_init_gen_rand(&rng, seed); 
-
 
     for (int time_count = 0; time_count < maxtime_count; time_count++){
         double time_ms = time_count * DT;
@@ -107,17 +112,28 @@ int main(){
         bool rand_material = (rand < frec * DT);
 
         update_sums_and_currents(time_ms, rand_material, &sum1_e, &sum2_e, &sum1_i, &sum2_i, &g_exc, &g_inh, &i_curr);
-        update_membrane_voltage(&v_memb, i_curr);
-        update_threshold_and_spike(&threshold, tau_theta, threshold_0, v_memb, b_volt, &spike);
+        // constant_currents(&i_curr);
 
-        if(spike){
+        if (refractory_flag) {
+            refractory_counter++;
+            if (refractory_counter >= REFRACTORY * count_per_ms) {
+                refractory_flag = 0;
+                refractory_counter = 0;
+            }
+        }
+
+        update_membrane_voltage(&v_memb, i_curr, refractory_flag, threshold);
+        update_threshold_and_spike(&threshold, tau_theta, threshold_0, v_memb, b_volt, &spike, refractory_flag);
+
+        if (spike) {
+            refractory_flag = 1;
+            refractory_counter = 0;
             fprintf(v_memb_file, "%lf %lf\n", time_ms, v_memb + 50);
         }
 
         fprintf(v_memb_file, "%lf %lf\n", time_ms, v_memb);
         fprintf(threshold_file, "%lf %lf\n", time_ms, threshold);
         fprintf(current_file, "%lf %lf\n", time_ms, i_curr);
-
     }
 
     fclose(v_memb_file);
