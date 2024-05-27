@@ -56,11 +56,20 @@ void update_sums_and_currents(double time_ms, bool rand_material, double *sum1_e
     *i_curr = i_current(*g_exc, *g_inh);
 }
 
-void update_threshold_and_spike(double *threshold, double tau_theta, double threshold_0, double v_memb, double b_volt, bool *spike, bool refractory_flag) {
-    double old_threshold = *threshold;
-    *threshold = exp(-DT / tau_theta) * old_threshold + (1.0 - exp(-DT / tau_theta)) * threshold_0;
+void update_threshold_and_spike(double *time_ms, double *threshold, double v_memb, double *sum1_1, double *sum1_2, bool *spike, bool refractory_flag) {
+    double alpha1 = 10.0;
+    double alpha2 = 0.2;
+    double omega = 10.0;
+    double tau1 = 10;
+    double tau2 = 200;
+    double old_sum1_1 = *sum1_1;
+    double old_sum1_2 = *sum1_2;
+
+    *sum1_1 = Sum1(*time_ms, *spike, tau1, old_sum1_1);
+    *sum1_2 = Sum1(*time_ms, *spike, tau2, old_sum1_2);
+
+    *threshold = alpha1 * *sum1_1 + alpha2 * *sum1_2 + omega;
     *spike = (!refractory_flag && v_memb >= *threshold) ? 1 : 0;
-    *threshold = *threshold + *spike * b_volt;
 }
 
 void constant_currents(double *i_curr){
@@ -72,23 +81,23 @@ void update_membrane_voltage(double *v_memb, double i_curr, bool refractory_flag
 }
 
 int main(){
-    double sum1_e, sum2_e, sum1_i, sum2_i, i_curr, g_exc, g_inh, frec, v_memb, threshold, b_volt, tau_theta, threshold_0;
+    double sum1_e, sum2_e, sum1_i, sum2_i, i_curr, g_exc, g_inh, frec, v_memb, threshold, sum1_1, sum1_2;
     sum1_e = 0;
     sum2_e = 0;
     sum1_i = 0;
     sum2_i = 0;
+    sum1_1 = 0;
+    sum1_2 = 0;
     v_memb = 0;
     threshold = 0;
-    threshold_0 = -1;
-    b_volt = 10; // <=> 発火時の上がり幅 omega
-    tau_theta = 300; // <=> expの下がり具合 alpha
-    frec = 6.88;
+    frec = 6.33;
 
     int maxtime_count = MAX_T / DT;
     int count_per_ms = (int)(1.0 / DT);  
     int refractory_flag = 0; 
     int refractory_counter = 0; 
     bool spike = 0;
+    bool i_const = 1;
 
     FILE *v_memb_file;
     char *v_filename = "output/v_memb.dat";
@@ -108,11 +117,16 @@ int main(){
 
     for (int time_count = 0; time_count < maxtime_count; time_count++){
         double time_ms = time_count * DT;
-        double rand = sfmt_genrand_real2(&rng);
+        
+        // use when current is not const.
+        double rand = sfmt_genrand_real2(&rng); 
         bool rand_material = (rand < frec * DT);
 
-        update_sums_and_currents(time_ms, rand_material, &sum1_e, &sum2_e, &sum1_i, &sum2_i, &g_exc, &g_inh, &i_curr);
-        // constant_currents(&i_curr);
+        if(i_const){
+            constant_currents(&i_curr);
+        }else{
+            update_sums_and_currents(time_ms, rand_material, &sum1_e, &sum2_e, &sum1_i, &sum2_i, &g_exc, &g_inh, &i_curr);
+        }
 
         if (refractory_flag) {
             refractory_counter++;
@@ -123,7 +137,7 @@ int main(){
         }
 
         update_membrane_voltage(&v_memb, i_curr, refractory_flag, threshold);
-        update_threshold_and_spike(&threshold, tau_theta, threshold_0, v_memb, b_volt, &spike, refractory_flag);
+        update_threshold_and_spike(&time_ms, &threshold, v_memb, &sum1_1, &sum1_2, &spike, refractory_flag);
 
         if (spike) {
             refractory_flag = 1;
