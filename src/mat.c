@@ -57,9 +57,9 @@ void update_sums_and_currents(double time_ms, bool rand_material, double *sum1_e
 }
 
 void update_threshold_and_spike(double *time_ms, double *threshold, double v_memb, double *sum1_1, double *sum1_2, bool *spike, bool refractory_flag) {
-    double alpha1 = 10.0;
-    double alpha2 = 0.2;
-    double omega = 10.0;
+    double alpha1 = 37.0;
+    double alpha2 = 2.0;
+    double omega = 19.0;
     double tau1 = 10;
     double tau2 = 200;
     double old_sum1_1 = *sum1_1;
