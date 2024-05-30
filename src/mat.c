@@ -57,9 +57,9 @@ void update_sums_and_currents(double time_ms, bool rand_material, double *sum1_e
 }
 
 void update_threshold_and_spike(double *time_ms, double *threshold, double v_memb, double *sum1_1, double *sum1_2, bool *spike, bool refractory_flag) {
-    double alpha1 = 37.0;
-    double alpha2 = 2.0;
-    double omega = 19.0;
+    double alpha1 = -1.0;
+    double alpha2 = 0.4;
+    double omega = 26.0;
     double tau1 = 10;
     double tau2 = 200;
     double old_sum1_1 = *sum1_1;
@@ -110,6 +110,14 @@ int main(){
     FILE *current_file;
     char *c_filename = "output/i_current.dat";
     current_file = fopen(c_filename, "w");
+
+    FILE *sum_file;
+    char *sum_filename = "output/sum.dat";
+    sum_file = fopen(sum_filename, "w");
+
+    FILE *spike_file;
+    char *spike_filename = "output/spike.dat";
+    spike_file = fopen(spike_filename, "w");
     
     uint32_t seed = (uint32_t)time(NULL);
     sfmt_t rng;
@@ -143,16 +151,20 @@ int main(){
             refractory_flag = 1;
             refractory_counter = 0;
             fprintf(v_memb_file, "%lf %lf\n", time_ms, v_memb + 50);
+            fprintf(spike_file, "%lf %d\n", time_ms, spike);
         }
 
         fprintf(v_memb_file, "%lf %lf\n", time_ms, v_memb);
         fprintf(threshold_file, "%lf %lf\n", time_ms, threshold);
         fprintf(current_file, "%lf %lf\n", time_ms, i_curr);
+        fprintf(sum_file, "%lf %lf %lf\n", time_ms, sum1_1, sum1_2);
     }
 
     fclose(v_memb_file);
     fclose(threshold_file);
     fclose(current_file);
+    fclose(sum_file);
+    fclose(spike_file);
 
     return 0;
 }
